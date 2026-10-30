@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone: Serverless API &amp; Containerized Web App</title>
+  <script src="config.js"></script>
+  <style>
+    :root { --bg:#0b1f2a; --card:#10303f; --teal:#2ec4b6; --amber:#ffb703; --text:#e8f1f2; --muted:#8fb3bd; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text);
+           font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding:24px; }
+    main { width:100%; max-width:520px; background:var(--card); border:1px solid #1d4a5c; border-radius:12px; padding:28px; }
+    h1 { margin:0 0 4px; font-size:1.35rem; color:var(--teal); }
+    p.sub { margin:0 0 20px; color:var(--muted); font-size:.9rem; }
+    label { display:block; margin:14px 0 6px; font-size:.85rem; color:var(--muted); }
+    input, textarea { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #1d4a5c; background:#0b1f2a; color:var(--text); font:inherit; }
+    input:focus, textarea:focus { outline:2px solid var(--teal); border-color:transparent; }
+    button { margin-top:20px; width:100%; padding:11px; border:0; border-radius:8px; background:var(--amber); color:#1a1a1a; font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:wait; }
+    #result { margin-top:18px; padding:12px; border-radius:8px; font-size:.9rem; display:none; word-break:break-word; }
+    #result.ok { display:block; background:#0f3d37; border:1px solid var(--teal); }
+    #result.err { display:block; background:#4a1f1f; border:1px solid #e5484d; }
+    footer { margin-top:20px; font-size:.75rem; color:var(--muted); word-break:break-all; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Submit to the Serverless API</h1>
+    <p class="sub">Served from ECS Fargate behind an ALB. Posts to API Gateway and Lambda.</p>
+    <form id="form">
+      <label for="name">Name</label>
+      <input id="name" name="name" required maxlength="100">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required maxlength="200">
+      <label for="message">Message</label>
+      <textarea id="message" name="message" rows="4" required maxlength="1000"></textarea>
+      <button id="btn" type="submit">Send</button>
+    </form>
+    <div id="result" role="status"></div>
+    <footer id="endpoint"></footer>
+  </main>
+  <script>
+    const apiUrl = (window.APP_CONFIG && window.APP_CONFIG.apiUrl) || "";
+    const form = document.getElementById("form");
+    const btn = document.getElementById("btn");
+    const result = document.getElementById("result");
+    document.getElementById("endpoint").textContent = "Endpoint: " + (apiUrl || "not configured");
+
+    function show(cls, text) { result.className = cls; result.textContent = text; }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!apiUrl) { show("err", "API URL is not configured."); return; }
+      btn.disabled = true;
+      try {
+        const res = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || ("HTTP " + res.status));
+        show("ok", data.message + " ID: " + data.id);
+        form.reset();
+      } catch (err) {
+        show("err", "Request failed: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
